@@ -41,13 +41,9 @@ pub enum Error {
     #[cfg(target_os = "linux")]
     #[error(transparent)]
     Xdg(#[from] xdg::BaseDirectoriesError),
-
-    #[cfg(target_os = "windows")]
-    #[error("system call failed")]
-    SystemCall(#[from] windows::Win32Error),
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 impl SystemProxy {
     pub fn is_support() -> bool {
