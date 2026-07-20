@@ -5,7 +5,7 @@ use iptools::iprange::{IPv4, IpRange, IpVer};
 ///
 /// Example:
 /// ```
-/// use system_proxy::utils::ipv4_cidr_to_wildcard;
+/// use systemproxy::utils::ipv4_cidr_to_wildcard;
 /// assert_eq!(ipv4_cidr_to_wildcard("127.0.0.1/8").unwrap(), vec!["127.*".to_string()]);
 /// ```
 pub fn ipv4_cidr_to_wildcard(cidr: &str) -> Result<Vec<String>> {

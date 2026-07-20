@@ -1,12 +1,12 @@
 [package]
-name = "system-proxy"
+name = "systemproxy"
 version = "0.3.0"
 edition = "2021"
-authors = ["zzzgydi"]
+authors = ["ssrlive", "zzzgydi"]
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/ssrlive/system-proxy.git"
-keywords = ["system-proxy", "proxy", "networksetup", "gsettings"]
+repository = "https://github.com/ssrlive/systemproxy.git"
+keywords = ["system", "proxy", "networksetup", "gsettings"]
 description = "A library for set/get system proxy. Supports Windows, macOS and linux (via gsettings)."
 
 [dependencies]

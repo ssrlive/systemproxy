@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use serial_test::serial;
-    use system_proxy::{Autoproxy, SystemProxy};
+    use systemproxy::{Autoproxy, SystemProxy};
 
     #[test]
     fn test_sys_support() {
