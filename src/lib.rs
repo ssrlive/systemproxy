@@ -60,6 +60,13 @@ impl SystemProxy {
                 .map(|proxy| proxy.enable)
                 .unwrap_or(false)
     }
+
+    pub fn stop() -> Result<()> {
+        if !Self::is_support() {
+            return Err(Error::NotSupport);
+        }
+        Self::set_system_proxy(&SystemProxy::default())
+    }
 }
 
 impl Autoproxy {
