@@ -290,7 +290,7 @@ fn apply(options: &INTERNET_PER_CONN_OPTION_LISTW) -> Result<()> {
 impl SystemProxy {
     pub fn get_system_proxy() -> Result<SystemProxy> {
         let hkcu = open_internet_settings_key()?;
-        let result = {
+        let result = (|| {
             let enable =
                 read_registry_dword_value(hkcu, "ProxyEnable")?.unwrap_or_default() == 1u32;
             let server = read_registry_string_value(hkcu, "ProxyServer")?.unwrap_or_default();
@@ -310,7 +310,7 @@ impl SystemProxy {
                 port,
                 bypass,
             })
-        };
+        })();
         close_registry_key(hkcu);
         result
     }
@@ -326,11 +326,11 @@ impl SystemProxy {
 impl Autoproxy {
     pub fn get_auto_proxy() -> Result<Autoproxy> {
         let hkcu = open_internet_settings_key()?;
-        let result = {
+        let result = (|| {
             let url = read_registry_string_value(hkcu, "AutoConfigURL")?.unwrap_or_default();
             let enable = !url.is_empty();
             Ok(Autoproxy { enable, url })
-        };
+        })();
         close_registry_key(hkcu);
         result
     }
