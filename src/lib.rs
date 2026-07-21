@@ -53,6 +53,13 @@ impl SystemProxy {
             target_os = "windows",
         ))
     }
+
+    pub fn is_enabled() -> bool {
+        Self::is_support()
+            && Self::get_system_proxy()
+                .map(|proxy| proxy.enable)
+                .unwrap_or(false)
+    }
 }
 
 impl Autoproxy {
