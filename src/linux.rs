@@ -3,9 +3,7 @@ use std::{env, process::Command, str::from_utf8, sync::LazyLock};
 
 const CMD_KEY: &str = "org.gnome.system.proxy";
 
-static IS_APPIMAGE: LazyLock<bool> = LazyLock::new(|| {
-    std::env::var("APPIMAGE").is_ok()
-});
+static IS_APPIMAGE: LazyLock<bool> = LazyLock::new(|| std::env::var("APPIMAGE").is_ok());
 
 impl Sysproxy {
     pub fn get_system_proxy() -> Result<Sysproxy> {
@@ -14,6 +12,7 @@ impl Sysproxy {
         let mut socks = get_proxy("socks")?;
         let https = get_proxy("https")?;
         let http = get_proxy("http")?;
+        let ftp = get_proxy("ftp")?;
 
         if socks.host.is_empty() {
             if !http.host.is_empty() {
@@ -23,6 +22,10 @@ impl Sysproxy {
             if !https.host.is_empty() {
                 socks.host = https.host;
                 socks.port = https.port;
+            }
+            if !ftp.host.is_empty() {
+                socks.host = ftp.host;
+                socks.port = ftp.port;
             }
         }
 
@@ -39,6 +42,7 @@ impl Sysproxy {
             self.set_socks()?;
             self.set_https()?;
             self.set_http()?;
+            self.set_ftp()?;
             self.set_bypass()?;
         }
 
@@ -48,14 +52,12 @@ impl Sysproxy {
     pub fn get_enable() -> Result<bool> {
         match env::var("XDG_CURRENT_DESKTOP").unwrap_or_default().as_str() {
             "KDE" => {
-                let xdg_dir = xdg::BaseDirectories::new()?;
-                let config = xdg_dir.get_config_file("kioslaverc");
-                let config = config.to_str().ok_or(Error::ParseStr("config".into()))?;
+                let config = kioslaverc_config()?;
 
                 let mode = kreadconfig()
                     .args([
                         "--file",
-                        config,
+                        &config,
                         "--group",
                         "Proxy Settings",
                         "--key",
@@ -80,14 +82,12 @@ impl Sysproxy {
     pub fn get_bypass() -> Result<String> {
         match env::var("XDG_CURRENT_DESKTOP").unwrap_or_default().as_str() {
             "KDE" => {
-                let xdg_dir = xdg::BaseDirectories::new()?;
-                let config = xdg_dir.get_config_file("kioslaverc");
-                let config = config.to_str().ok_or(Error::ParseStr("config".into()))?;
+                let config = kioslaverc_config()?;
 
                 let bypass = kreadconfig()
                     .args([
                         "--file",
-                        config,
+                        &config,
                         "--group",
                         "Proxy Settings",
                         "--key",
@@ -136,6 +136,10 @@ impl Sysproxy {
         get_proxy("https")
     }
 
+    pub fn get_ftp() -> Result<Sysproxy> {
+        get_proxy("ftp")
+    }
+
     pub fn get_socks() -> Result<Sysproxy> {
         get_proxy("socks")
     }
@@ -143,14 +147,12 @@ impl Sysproxy {
     pub fn set_enable(&self) -> Result<()> {
         match env::var("XDG_CURRENT_DESKTOP").unwrap_or_default().as_str() {
             "KDE" => {
-                let xdg_dir = xdg::BaseDirectories::new()?;
-                let config = xdg_dir.get_config_file("kioslaverc");
-                let config = config.to_str().ok_or(Error::ParseStr("config".into()))?;
+                let config = kioslaverc_config()?;
                 let mode = if self.enable { "1" } else { "0" };
                 kwriteconfig()
                     .args([
                         "--file",
-                        config,
+                        &config,
                         "--group",
                         "Proxy Settings",
                         "--key",
@@ -173,36 +175,34 @@ impl Sysproxy {
     pub fn set_bypass(&self) -> Result<()> {
         match env::var("XDG_CURRENT_DESKTOP").unwrap_or_default().as_str() {
             "KDE" => {
-                let xdg_dir = xdg::BaseDirectories::new()?;
-                let config = xdg_dir.get_config_file("kioslaverc");
-                let config = config.to_str().ok_or(Error::ParseStr("config".into()))?;
+                let config = kioslaverc_config()?;
 
                 let bypass = self
-                .bypass
-                .split(',')
-                .map(|h| {
-                    let mut host = String::from(h.trim());
-                    if !host.starts_with('\'') && !host.starts_with('"') {
-                        host = String::from("'") + &host;
-                    }
-                    if !host.ends_with('\'') && !host.ends_with('"') {
-                        host += "'";
-                    }
-                    host
-                })
-                .collect::<Vec<String>>()
-                .join(", ");
+                    .bypass
+                    .split(',')
+                    .map(|h| {
+                        let mut host = String::from(h.trim());
+                        if !host.starts_with('\'') && !host.starts_with('"') {
+                            host = String::from("'") + &host;
+                        }
+                        if !host.ends_with('\'') && !host.ends_with('"') {
+                            host += "'";
+                        }
+                        host
+                    })
+                    .collect::<Vec<String>>()
+                    .join(", ");
 
                 let bypass = format!("[{bypass}]");
 
                 gsettings()
-                .args(["set", CMD_KEY, "ignore-hosts", bypass.as_str()])
-                .status()?;
+                    .args(["set", CMD_KEY, "ignore-hosts", bypass.as_str()])
+                    .status()?;
 
                 kwriteconfig()
                     .args([
                         "--file",
-                        config,
+                        &config,
                         "--group",
                         "Proxy Settings",
                         "--key",
@@ -245,6 +245,10 @@ impl Sysproxy {
 
     pub fn set_https(&self) -> Result<()> {
         set_proxy(self, "https")
+    }
+
+    pub fn set_ftp(&self) -> Result<()> {
+        set_proxy(self, "ftp")
     }
 
     pub fn set_socks(&self) -> Result<()> {
@@ -298,15 +302,14 @@ fn set_proxy(proxy: &Sysproxy, service: &str) -> Result<()> {
             gsettings().args(["set", schema, "host", host]).status()?;
             gsettings().args(["set", schema, "port", port]).status()?;
 
-            let xdg_dir = xdg::BaseDirectories::new()?;
-            let config = xdg_dir.get_config_file("kioslaverc");
-            let config = config.to_str().ok_or(Error::ParseStr("config".into()))?;
+            let config = kioslaverc_config()?;
 
             let key = format!("{service}Proxy");
             let key = key.as_str();
 
             let service = match service {
                 "socks" => "socks",
+                "ftp" => "ftp",
                 _ => "http",
             };
 
@@ -319,7 +322,7 @@ fn set_proxy(proxy: &Sysproxy, service: &str) -> Result<()> {
             kwriteconfig()
                 .args([
                     "--file",
-                    config,
+                    &config,
                     "--group",
                     "Proxy Settings",
                     "--key",
@@ -327,7 +330,7 @@ fn set_proxy(proxy: &Sysproxy, service: &str) -> Result<()> {
                     schema,
                 ])
                 .status()?;
-     
+
             Ok(())
         }
         _ => {
@@ -350,21 +353,21 @@ fn set_proxy(proxy: &Sysproxy, service: &str) -> Result<()> {
 fn get_proxy(service: &str) -> Result<Sysproxy> {
     match env::var("XDG_CURRENT_DESKTOP").unwrap_or_default().as_str() {
         "KDE" => {
-            let xdg_dir = xdg::BaseDirectories::new()?;
-            let config = xdg_dir.get_config_file("kioslaverc");
-            let config = config.to_str().ok_or(Error::ParseStr("config".into()))?;
+            let config = kioslaverc_config()?;
 
             let key = format!("{service}Proxy");
             let key = key.as_str();
 
             let schema = kreadconfig()
-                .args(["--file", config, "--group", "Proxy Settings", "--key", key])
+                .args(["--file", &config, "--group", "Proxy Settings", "--key", key])
                 .output()?;
             let schema = from_utf8(&schema.stdout)
                 .or(Err(Error::ParseStr("schema".into())))?
                 .trim();
             let schema = schema
                 .trim_start_matches("http://")
+                .trim_start_matches("https://")
+                .trim_start_matches("ftp://")
                 .trim_start_matches("socks://");
             let schema = schema
                 .split_once(' ')
@@ -413,18 +416,25 @@ fn strip_str(text: &str) -> &str {
         .unwrap_or(text)
 }
 
+fn kioslaverc_config() -> Result<String> {
+    let xdg_dir = xdg::BaseDirectories::new();
+    let config = xdg_dir
+        .get_config_file("kioslaverc")
+        .ok_or(Error::ParseStr("config".into()))?;
+    let config = config.to_str().ok_or(Error::ParseStr("config".into()))?;
+    Ok(config.to_string())
+}
+
 impl Autoproxy {
     pub fn get_auto_proxy() -> Result<Autoproxy> {
         let (enable, url) = match env::var("XDG_CURRENT_DESKTOP").unwrap_or_default().as_str() {
             "KDE" => {
-                let xdg_dir = xdg::BaseDirectories::new()?;
-                let config = xdg_dir.get_config_file("kioslaverc");
-                let config = config.to_str().ok_or(Error::ParseStr("config".into()))?;
+                let config = kioslaverc_config()?;
 
                 let mode = kreadconfig()
                     .args([
                         "--file",
-                        config,
+                        &config,
                         "--group",
                         "Proxy Settings",
                         "--key",
@@ -437,7 +447,7 @@ impl Autoproxy {
                 let url = kreadconfig()
                     .args([
                         "--file",
-                        config,
+                        &config,
                         "--group",
                         "Proxy Settings",
                         "--key",
@@ -471,14 +481,12 @@ impl Autoproxy {
     pub fn set_auto_proxy(&self) -> Result<()> {
         match env::var("XDG_CURRENT_DESKTOP").unwrap_or_default().as_str() {
             "KDE" => {
-                let xdg_dir = xdg::BaseDirectories::new()?;
-                let config = xdg_dir.get_config_file("kioslaverc");
-                let config = config.to_str().ok_or(Error::ParseStr("config".into()))?;
+                let config = kioslaverc_config()?;
                 let mode = if self.enable { "2" } else { "0" };
                 kwriteconfig()
                     .args([
                         "--file",
-                        config,
+                        &config,
                         "--group",
                         "Proxy Settings",
                         "--key",
@@ -489,7 +497,7 @@ impl Autoproxy {
                 kwriteconfig()
                     .args([
                         "--file",
-                        config,
+                        &config,
                         "--group",
                         "Proxy Settings",
                         "--key",

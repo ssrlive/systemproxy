@@ -15,7 +15,7 @@ pub fn ipv4_cidr_to_wildcard(cidr: &str) -> Result<Vec<String>> {
         return Err(Error::ParseStr(cidr.into()));
     }
 
-    let (start, end) = ip.get_range().unwrap();
+    let (start, end) = ip.get_range();
     let start = start.split('.').collect::<Vec<&str>>();
     let end = end.split('.').collect::<Vec<&str>>();
 
