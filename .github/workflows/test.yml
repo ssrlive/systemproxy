@@ -17,6 +17,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     continue-on-error: true
     strategy:
+      fail-fast: false
       matrix:
         os:
           - macos-latest
@@ -40,9 +41,18 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@ce325b60658c1b38465c06cc965b79baf32c1e72
 
+      - name: Run cargo fmt
+        if: ${{ !cancelled() }}
+        run: cargo fmt --all -- --check
+
+      - name: Run cargo clippy
+        if: ${{ !cancelled() }}
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
       - name: Run cargo check
+        if: ${{ !cancelled() }}
         run: cargo check
 
       - name: Run cargo test
-        run: |
-          cargo test -- --nocapture
+        if: ${{ !cancelled() }}
+        run: cargo test -- --nocapture

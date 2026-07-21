@@ -31,15 +31,14 @@ impl SystemProxy {
         socks.bypass = bypass;
 
         if !socks.enable {
-            if http.enable {
-                socks.enable = true;
-                socks.host = http.host;
-                socks.port = http.port;
-            }
             if https.enable {
                 socks.enable = true;
                 socks.host = https.host;
                 socks.port = https.port;
+            } else if http.enable {
+                socks.enable = true;
+                socks.host = http.host;
+                socks.port = http.port;
             }
         }
 
@@ -93,8 +92,9 @@ impl SystemProxy {
 
         let bypass = from_utf8(&bypass_output.stdout)
             .or(Err(Error::ParseStr("bypass".into())))?
-            .split('\n')
-            .filter(|s| s.len() > 0)
+            .lines()
+            .map(str::trim)
+            .filter(|s| !s.is_empty() && !s.starts_with("There "))
             .collect::<Vec<&str>>()
             .join(",");
 
@@ -114,10 +114,25 @@ impl SystemProxy {
     }
 
     pub fn set_bypass(&self, service: &str) -> Result<()> {
-        let domains = self.bypass.split(",").collect::<Vec<_>>();
-        networksetup()
-            .args([["-setproxybypassdomains", service].to_vec(), domains].concat())
-            .status()?;
+        let domains = self
+            .bypass
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>();
+
+        let args = if domains.is_empty() {
+            vec!["-setproxybypassdomains", service, "Empty"]
+                .into_iter()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        } else {
+            let mut args = vec!["-setproxybypassdomains".to_string(), service.to_string()];
+            args.extend(domains.iter().map(|s| s.to_string()));
+            args
+        };
+
+        networksetup().args(args).status()?;
         Ok(())
     }
 }
@@ -138,17 +153,23 @@ impl Autoproxy {
         let auto_output = networksetup()
             .args(["-getautoproxyurl", service])
             .output()?;
-        let auto = from_utf8(&auto_output.stdout)
-            .or(Err(Error::ParseStr("auto".into())))?
-            .trim()
-            .split_once('\n')
-            .ok_or(Error::ParseStr("auto".into()))?;
-        let url = strip_str(auto.0.strip_prefix("URL: ").unwrap_or(""));
-        let enable = auto.1 == "Enabled: Yes";
+        let stdout = from_utf8(&auto_output.stdout).or(Err(Error::ParseStr("auto".into())))?;
+
+        let mut url = "";
+        let mut enable = false;
+        for line in stdout.lines() {
+            let line = line.trim();
+            if let Some(value) = line.strip_prefix("URL: ") {
+                url = value;
+            }
+            if let Some(value) = line.strip_prefix("Enabled: ") {
+                enable = value == "Yes";
+            }
+        }
 
         Ok(Autoproxy {
             enable,
-            url: url.to_string(),
+            url: strip_str(url).to_string(),
         })
     }
 
@@ -181,6 +202,7 @@ impl Autoproxy {
     }
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug)]
 enum ProxyType {
     HTTP,
@@ -263,7 +285,7 @@ fn parse<'a>(target: &'a str, key: &'a str) -> &'a str {
     }
 }
 
-fn strip_str<'a>(text: &'a str) -> &'a str {
+fn strip_str(text: &str) -> &str {
     text.strip_prefix('"')
         .unwrap_or(text)
         .strip_suffix('"')
@@ -294,12 +316,20 @@ fn default_network_service() -> Result<String> {
 fn default_network_service_by_ns() -> Result<String> {
     let output = networksetup().arg("-listallnetworkservices").output()?;
     let stdout = from_utf8(&output.stdout).or(Err(Error::ParseStr("output".into())))?;
-    let mut lines = stdout.split('\n');
-    lines.next(); // ignore the tips
+    let service = stdout
+        .lines()
+        .skip_while(|line| line.trim().is_empty())
+        .skip(1)
+        .find_map(|line| {
+            let service = line.trim();
+            if service.is_empty() || service.starts_with('*') {
+                return None;
+            }
+            Some(service.trim_start_matches('*').trim().to_string())
+        });
 
-    // get the first service
-    match lines.next() {
-        Some(line) => Ok(line.into()),
+    match service {
+        Some(service) => Ok(service),
         None => Err(Error::NetworkInterface),
     }
 }
