@@ -11,7 +11,7 @@ mod windows;
 pub mod utils;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct Sysproxy {
+pub struct SystemProxy {
     pub enable: bool,
     pub host: String,
     pub port: u16,
@@ -49,7 +49,7 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-impl Sysproxy {
+impl SystemProxy {
     pub fn is_support() -> bool {
         cfg!(any(
             target_os = "linux",

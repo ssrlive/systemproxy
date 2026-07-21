@@ -1,11 +1,11 @@
 #[cfg(test)]
 mod tests {
     use serial_test::serial;
-    use sysproxy::{Autoproxy, Sysproxy};
+    use system_proxy::{Autoproxy, SystemProxy};
 
     #[test]
     fn test_sys_support() {
-        assert!(Sysproxy::is_support());
+        assert!(SystemProxy::is_support());
     }
 
     #[test]
@@ -15,7 +15,7 @@ mod tests {
 
     #[test]
     fn test_sys_get() {
-        Sysproxy::get_system_proxy().unwrap();
+        SystemProxy::get_system_proxy().unwrap();
     }
 
     #[test]
@@ -26,7 +26,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_system_enable() {
-        let mut sysproxy = Sysproxy {
+        let mut sys_proxy = SystemProxy {
             enable: true,
             host: "127.0.0.1".into(),
             port: 9090,
@@ -35,17 +35,17 @@ mod tests {
             #[cfg(not(target_os = "windows"))]
             bypass: "localhost,127.0.0.1/8".into(),
         };
-        sysproxy.set_system_proxy().unwrap();
+        sys_proxy.set_system_proxy().unwrap();
 
-        let cur_proxy = Sysproxy::get_system_proxy().unwrap();
+        let cur_proxy = SystemProxy::get_system_proxy().unwrap();
 
-        assert_eq!(cur_proxy, sysproxy);
+        assert_eq!(cur_proxy, sys_proxy);
 
-        sysproxy.enable = false;
-        sysproxy.set_system_proxy().unwrap();
+        sys_proxy.enable = false;
+        sys_proxy.set_system_proxy().unwrap();
 
-        let current = Sysproxy::get_system_proxy().unwrap();
-        assert_eq!(current, sysproxy);
+        let current = SystemProxy::get_system_proxy().unwrap();
+        assert_eq!(current, sys_proxy);
     }
 
     #[test]

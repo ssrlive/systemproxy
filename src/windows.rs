@@ -1,4 +1,4 @@
-use crate::{Autoproxy, Error, Result, Sysproxy};
+use crate::{Autoproxy, Error, Result, SystemProxy};
 use std::ffi::c_void;
 use std::{mem::size_of, mem::ManuallyDrop, net::SocketAddr, str::FromStr};
 use windows::core::PWSTR;
@@ -141,8 +141,8 @@ fn apply(options: &INTERNET_PER_CONN_OPTION_LISTW) -> Result<()> {
     Ok(())
 }
 
-impl Sysproxy {
-    pub fn get_system_proxy() -> Result<Sysproxy> {
+impl SystemProxy {
+    pub fn get_system_proxy() -> Result<SystemProxy> {
         let hkcu = RegKey::predef(enums::HKEY_CURRENT_USER);
         let cur_var = hkcu.open_subkey_with_flags(SUB_KEY, enums::KEY_READ)?;
         let enable = cur_var.get_value::<u32, _>("ProxyEnable").unwrap_or(0u32) == 1u32;
@@ -163,7 +163,7 @@ impl Sysproxy {
 
         let bypass = cur_var.get_value("ProxyOverride").unwrap_or("".into());
 
-        Ok(Sysproxy {
+        Ok(SystemProxy {
             enable,
             host,
             port,

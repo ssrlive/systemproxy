@@ -1,13 +1,13 @@
-use crate::{Autoproxy, Error, Result, Sysproxy};
+use crate::{Autoproxy, Error, Result, SystemProxy};
 use std::{env, process::Command, str::from_utf8, sync::LazyLock};
 
 const CMD_KEY: &str = "org.gnome.system.proxy";
 
 static IS_APPIMAGE: LazyLock<bool> = LazyLock::new(|| std::env::var("APPIMAGE").is_ok());
 
-impl Sysproxy {
-    pub fn get_system_proxy() -> Result<Sysproxy> {
-        let enable = Sysproxy::get_enable()?;
+impl SystemProxy {
+    pub fn get_system_proxy() -> Result<SystemProxy> {
+        let enable = SystemProxy::get_enable()?;
 
         let mut socks = get_proxy("socks")?;
         let https = get_proxy("https")?;
@@ -30,7 +30,7 @@ impl Sysproxy {
         }
 
         socks.enable = enable;
-        socks.bypass = Sysproxy::get_bypass().unwrap_or("".into());
+        socks.bypass = SystemProxy::get_bypass().unwrap_or("".into());
 
         Ok(socks)
     }
@@ -128,19 +128,19 @@ impl Sysproxy {
         }
     }
 
-    pub fn get_http() -> Result<Sysproxy> {
+    pub fn get_http() -> Result<SystemProxy> {
         get_proxy("http")
     }
 
-    pub fn get_https() -> Result<Sysproxy> {
+    pub fn get_https() -> Result<SystemProxy> {
         get_proxy("https")
     }
 
-    pub fn get_ftp() -> Result<Sysproxy> {
+    pub fn get_ftp() -> Result<SystemProxy> {
         get_proxy("ftp")
     }
 
-    pub fn get_socks() -> Result<Sysproxy> {
+    pub fn get_socks() -> Result<SystemProxy> {
         get_proxy("socks")
     }
 
@@ -288,7 +288,7 @@ fn kwriteconfig() -> Command {
     command
 }
 
-fn set_proxy(proxy: &Sysproxy, service: &str) -> Result<()> {
+fn set_proxy(proxy: &SystemProxy, service: &str) -> Result<()> {
     match env::var("XDG_CURRENT_DESKTOP").unwrap_or_default().as_str() {
         "KDE" => {
             let schema = format!("{CMD_KEY}.{service}");
@@ -350,7 +350,7 @@ fn set_proxy(proxy: &Sysproxy, service: &str) -> Result<()> {
     }
 }
 
-fn get_proxy(service: &str) -> Result<Sysproxy> {
+fn get_proxy(service: &str) -> Result<SystemProxy> {
     match env::var("XDG_CURRENT_DESKTOP").unwrap_or_default().as_str() {
         "KDE" => {
             let config = kioslaverc_config()?;
@@ -376,7 +376,7 @@ fn get_proxy(service: &str) -> Result<Sysproxy> {
             let host = strip_str(schema.0);
             let port = schema.1.parse().unwrap_or(80u16);
 
-            Ok(Sysproxy {
+            Ok(SystemProxy {
                 enable: false,
                 host: String::from(host),
                 port,
@@ -399,7 +399,7 @@ fn get_proxy(service: &str) -> Result<Sysproxy> {
                 .trim();
             let port = port.parse().unwrap_or(80u16);
 
-            Ok(Sysproxy {
+            Ok(SystemProxy {
                 enable: false,
                 host: String::from(host),
                 port,

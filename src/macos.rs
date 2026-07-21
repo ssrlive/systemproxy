@@ -1,10 +1,10 @@
-use crate::{Autoproxy, Error, Result, Sysproxy};
+use crate::{Autoproxy, Error, Result, SystemProxy};
 use log::debug;
 use std::net::{SocketAddr, UdpSocket};
 use std::{process::Command, str::from_utf8};
 
-impl Sysproxy {
-    pub fn get_system_proxy() -> Result<Sysproxy> {
+impl SystemProxy {
+    pub fn get_system_proxy() -> Result<SystemProxy> {
         let service = default_network_service().or_else(|e| {
             debug!("Failed to get network service: {:?}", e);
             default_network_service_by_ns()
@@ -16,16 +16,16 @@ impl Sysproxy {
         let service = service.unwrap();
         let service = service.as_str();
 
-        let mut socks = Sysproxy::get_socks(service)?;
+        let mut socks = SystemProxy::get_socks(service)?;
         debug!("Getting SOCKS proxy: {:?}", socks);
 
-        let http = Sysproxy::get_http(service)?;
+        let http = SystemProxy::get_http(service)?;
         debug!("Getting HTTP proxy: {:?}", http);
 
-        let https = Sysproxy::get_https(service)?;
+        let https = SystemProxy::get_https(service)?;
         debug!("Getting HTTPS proxy: {:?}", https);
 
-        let bypass = Sysproxy::get_bypass(service)?;
+        let bypass = SystemProxy::get_bypass(service)?;
         debug!("Getting bypass domains: {:?}", bypass);
 
         socks.bypass = bypass;
@@ -74,15 +74,15 @@ impl Sysproxy {
         Ok(())
     }
 
-    pub fn get_http(service: &str) -> Result<Sysproxy> {
+    pub fn get_http(service: &str) -> Result<SystemProxy> {
         get_proxy(ProxyType::HTTP, service)
     }
 
-    pub fn get_https(service: &str) -> Result<Sysproxy> {
+    pub fn get_https(service: &str) -> Result<SystemProxy> {
         get_proxy(ProxyType::HTTPS, service)
     }
 
-    pub fn get_socks(service: &str) -> Result<Sysproxy> {
+    pub fn get_socks(service: &str) -> Result<SystemProxy> {
         get_proxy(ProxyType::SOCKS, service)
     }
 
@@ -202,7 +202,7 @@ fn networksetup() -> Command {
     Command::new("networksetup")
 }
 
-fn set_proxy(proxy: &Sysproxy, proxy_type: ProxyType, service: &str) -> Result<()> {
+fn set_proxy(proxy: &SystemProxy, proxy_type: ProxyType, service: &str) -> Result<()> {
     let target = format!("-set{}", proxy_type.to_target());
     let target = target.as_str();
 
@@ -224,7 +224,7 @@ fn set_proxy(proxy: &Sysproxy, proxy_type: ProxyType, service: &str) -> Result<(
     Ok(())
 }
 
-fn get_proxy(proxy_type: ProxyType, service: &str) -> Result<Sysproxy> {
+fn get_proxy(proxy_type: ProxyType, service: &str) -> Result<SystemProxy> {
     let target = format!("-get{}", proxy_type.to_target());
     let target = target.as_str();
 
@@ -240,7 +240,7 @@ fn get_proxy(proxy_type: ProxyType, service: &str) -> Result<Sysproxy> {
     let port = parse(stdout, "Port:");
     let port = port.parse().or(Err(Error::ParseStr("port".into())))?;
 
-    Ok(Sysproxy {
+    Ok(SystemProxy {
         enable,
         host,
         port,
