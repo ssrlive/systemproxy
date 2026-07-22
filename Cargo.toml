@@ -1,7 +1,7 @@
 [package]
 name = "systemproxy"
 version = "0.3.4"
-edition = "2021"
+edition = "2024"
 authors = ["ssrlive", "zzzgydi"]
 license = "MIT"
 readme = "README.md"

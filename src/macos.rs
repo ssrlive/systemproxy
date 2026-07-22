@@ -353,11 +353,7 @@ fn get_service_by_device(device: String) -> Result<String> {
             }
         }
 
-        if device == device_? {
-            hardware
-        } else {
-            None
-        }
+        if device == device_? { hardware } else { None }
     });
 
     match hardware {
