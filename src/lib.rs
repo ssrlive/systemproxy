@@ -10,12 +10,26 @@ mod windows;
 // #[cfg(feature = "utils")]
 pub mod utils;
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SystemProxy {
     pub enable: bool,
     pub host: String,
     pub port: u16,
     pub bypass: String,
+}
+
+impl Default for SystemProxy {
+    fn default() -> Self {
+        Self {
+            enable: false,
+            host: String::new(),
+            port: 0,
+            #[cfg(target_os = "windows")]
+            bypass: "localhost;127.*".into(),
+            #[cfg(not(target_os = "windows"))]
+            bypass: "localhost,127.0.0.1/8".into(),
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
