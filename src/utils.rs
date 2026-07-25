@@ -1,4 +1,4 @@
-use crate::{Error, Result};
+#[cfg(feature = "iptools")]
 use iptools::iprange::{IPv4, IpRange, IpVer};
 
 /// Convert ipv4 cidr to wildcard
@@ -8,11 +8,12 @@ use iptools::iprange::{IPv4, IpRange, IpVer};
 /// use systemproxy::utils::ipv4_cidr_to_wildcard;
 /// assert_eq!(ipv4_cidr_to_wildcard("127.0.0.1/8").unwrap(), vec!["127.*".to_string()]);
 /// ```
-pub fn ipv4_cidr_to_wildcard(cidr: &str) -> Result<Vec<String>> {
-    let ip = IpRange::<IPv4>::new(cidr, "").or(Err(Error::ParseStr(cidr.into())))?;
+#[cfg(feature = "iptools")]
+pub fn ipv4_cidr_to_wildcard(cidr: &str) -> crate::Result<Vec<String>> {
+    let ip = IpRange::<IPv4>::new(cidr, "").or(Err(crate::Error::ParseStr(cidr.into())))?;
 
     if ip.get_version() != IpVer::V4 {
-        return Err(Error::ParseStr(cidr.into()));
+        return Err(crate::Error::ParseStr(cidr.into()));
     }
 
     let (start, end) = ip.get_range();
@@ -38,10 +39,10 @@ pub fn ipv4_cidr_to_wildcard(cidr: &str) -> Result<Vec<String>> {
 
         let s = start[i]
             .parse::<u16>()
-            .or(Err(Error::ParseStr(cidr.into())))?;
+            .or(Err(crate::Error::ParseStr(cidr.into())))?;
         let e = end[i]
             .parse::<u16>()
-            .or(Err(Error::ParseStr(cidr.into())))?;
+            .or(Err(crate::Error::ParseStr(cidr.into())))?;
 
         for j in s..e + 1 {
             let mut builder = each.clone();
@@ -57,6 +58,7 @@ pub fn ipv4_cidr_to_wildcard(cidr: &str) -> Result<Vec<String>> {
 }
 
 #[test]
+#[cfg(feature = "iptools")]
 fn test_ipv4_cidr_to_wildcard() {
     println!("{:?}", ipv4_cidr_to_wildcard("127.0.0.1/1"));
     println!("{:?}", ipv4_cidr_to_wildcard("127.0.0.1/2"));

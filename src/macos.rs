@@ -1,32 +1,31 @@
 use crate::{Autoproxy, Error, Result, SystemProxy};
-use log::debug;
 use std::net::{SocketAddr, UdpSocket};
 use std::{process::Command, str::from_utf8};
 
 impl SystemProxy {
     pub fn get_system_proxy() -> Result<SystemProxy> {
         let service = default_network_service().or_else(|e| {
-            debug!("Failed to get network service: {:?}", e);
+            log::warn!("Failed to get network service: {:?}", e);
             default_network_service_by_ns()
         });
         if let Err(e) = service {
-            debug!("Failed to get network service by networksetup: {:?}", e);
+            log::warn!("Failed to get network service by networksetup: {:?}", e);
             return Err(e);
         }
         let service = service.unwrap();
         let service = service.as_str();
 
         let mut socks = SystemProxy::get_socks(service)?;
-        debug!("Getting SOCKS proxy: {:?}", socks);
+        log::trace!("Getting SOCKS proxy: {:?}", socks);
 
         let http = SystemProxy::get_http(service)?;
-        debug!("Getting HTTP proxy: {:?}", http);
+        log::trace!("Getting HTTP proxy: {:?}", http);
 
         let https = SystemProxy::get_https(service)?;
-        debug!("Getting HTTPS proxy: {:?}", https);
+        log::trace!("Getting HTTPS proxy: {:?}", https);
 
         let bypass = SystemProxy::get_bypass(service)?;
-        debug!("Getting bypass domains: {:?}", bypass);
+        log::trace!("Getting bypass domains: {:?}", bypass);
 
         socks.bypass = bypass;
 
@@ -47,28 +46,28 @@ impl SystemProxy {
 
     pub fn set_system_proxy(&self) -> Result<()> {
         let service = default_network_service().or_else(|e| {
-            debug!("Failed to get network service: {:?}", e);
+            log::warn!("Failed to get network service: {:?}", e);
             default_network_service_by_ns()
         });
         if let Err(e) = service {
-            debug!("Failed to get network service by networksetup: {:?}", e);
+            log::warn!("Failed to get network service by networksetup: {:?}", e);
             return Err(e);
         }
         let service = service.unwrap();
         let service = service.as_str();
 
-        debug!("Use network service: {}", service);
+        log::trace!("Use network service: {}", service);
 
-        debug!("Setting SOCKS proxy");
+        log::trace!("Setting SOCKS proxy");
         self.set_socks(service)?;
 
-        debug!("Setting HTTP proxy");
+        log::trace!("Setting HTTP proxy");
         self.set_https(service)?;
 
-        debug!("Setting HTTPS proxy");
+        log::trace!("Setting HTTPS proxy");
         self.set_http(service)?;
 
-        debug!("Setting bypass domains");
+        log::trace!("Setting bypass domains");
         self.set_bypass(service)?;
         Ok(())
     }
@@ -140,11 +139,11 @@ impl SystemProxy {
 impl Autoproxy {
     pub fn get_auto_proxy() -> Result<Autoproxy> {
         let service = default_network_service().or_else(|e| {
-            debug!("Failed to get network service: {:?}", e);
+            log::warn!("Failed to get network service: {:?}", e);
             default_network_service_by_ns()
         });
         if let Err(e) = service {
-            debug!("Failed to get network service by networksetup: {:?}", e);
+            log::warn!("Failed to get network service by networksetup: {:?}", e);
             return Err(e);
         }
         let service = service.unwrap();
@@ -175,11 +174,11 @@ impl Autoproxy {
 
     pub fn set_auto_proxy(&self) -> Result<()> {
         let service = default_network_service().or_else(|e| {
-            debug!("Failed to get network service: {:?}", e);
+            log::warn!("Failed to get network service: {:?}", e);
             default_network_service_by_ns()
         });
         if let Err(e) = service {
-            debug!("Failed to get network service by networksetup: {:?}", e);
+            log::warn!("Failed to get network service by networksetup: {:?}", e);
             return Err(e);
         }
         let service = service.unwrap();
