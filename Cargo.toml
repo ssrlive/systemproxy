@@ -28,7 +28,7 @@ windows-sys = { version = "0.61.2", features = [
 ] }
 
 [dev-dependencies]
-serial_test = "3.5.0"
+serial_test = "4.0.1"
 
 [features]
 default = ["iptools"]

@@ -16,6 +16,8 @@ pub struct SystemProxy {
     pub host: String,
     pub port: u16,
     pub bypass: String,
+    #[cfg(target_os = "windows")]
+    pub bypass_local: bool,
 }
 
 impl Default for SystemProxy {
@@ -28,6 +30,8 @@ impl Default for SystemProxy {
             bypass: "localhost;127.*".into(),
             #[cfg(not(target_os = "windows"))]
             bypass: "localhost,127.0.0.1/8".into(),
+            #[cfg(target_os = "windows")]
+            bypass_local: false,
         }
     }
 }

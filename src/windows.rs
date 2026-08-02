@@ -148,7 +148,49 @@ fn close_registry_key(key: HKEY) {
     }
 }
 
-/// unset proxy
+/// unset proxy while keeping bypass configuration in sync
+fn unset_proxy_with_bypass(bypass: String, bypass_local: bool) -> Result<()> {
+    let bypass = normalize_windows_bypass(&bypass, bypass_local);
+    let mut p_opts = ManuallyDrop::new(Vec::<INTERNET_PER_CONN_OPTIONW>::with_capacity(2));
+    p_opts.push(INTERNET_PER_CONN_OPTIONW {
+        dwOption: INTERNET_PER_CONN_FLAGS,
+        Value: {
+            let mut v = INTERNET_PER_CONN_OPTIONW_0::default();
+            v.dwValue = PROXY_TYPE_DIRECT;
+            v
+        },
+    });
+
+    let mut b = ManuallyDrop::new(
+        bypass
+            .clone()
+            .encode_utf16()
+            .chain(Some(0u16))
+            .collect::<Vec<u16>>(),
+    );
+    p_opts.push(INTERNET_PER_CONN_OPTIONW {
+        dwOption: INTERNET_PER_CONN_PROXY_BYPASS,
+        Value: INTERNET_PER_CONN_OPTIONW_0 {
+            pszValue: b.as_ptr() as *mut u16,
+        },
+    });
+
+    let opts = INTERNET_PER_CONN_OPTION_LISTW {
+        dwSize: size_of::<INTERNET_PER_CONN_OPTION_LISTW>() as u32,
+        dwOptionCount: 2,
+        dwOptionError: 0,
+        pOptions: p_opts.as_mut_ptr(),
+        pszConnection: null_mut(),
+    };
+    let res = apply(&opts);
+    unsafe {
+        ManuallyDrop::drop(&mut b);
+        ManuallyDrop::drop(&mut p_opts);
+    }
+    res
+}
+
+/// unset proxy without touching bypass configuration
 fn unset_proxy() -> Result<()> {
     let mut p_opts = ManuallyDrop::new(Vec::<INTERNET_PER_CONN_OPTIONW>::with_capacity(1));
     p_opts.push(INTERNET_PER_CONN_OPTIONW {
@@ -212,7 +254,8 @@ fn set_auto_proxy(server: String) -> Result<()> {
 }
 
 /// set global proxy
-fn set_global_proxy(server: String, bypass: String) -> Result<()> {
+fn set_global_proxy(server: String, bypass: String, bypass_local: bool) -> Result<()> {
+    let bypass = normalize_windows_bypass(&bypass, bypass_local);
     let mut p_opts = ManuallyDrop::new(Vec::<INTERNET_PER_CONN_OPTIONW>::with_capacity(3));
     p_opts.push(INTERNET_PER_CONN_OPTIONW {
         dwOption: INTERNET_PER_CONN_FLAGS,
@@ -265,6 +308,23 @@ fn set_global_proxy(server: String, bypass: String) -> Result<()> {
     res
 }
 
+fn normalize_windows_bypass(bypass: &str, bypass_local: bool) -> String {
+    let mut parts: Vec<&str> = bypass
+        .split(';')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .collect();
+    let has_local = parts
+        .iter()
+        .any(|part| part.eq_ignore_ascii_case("<local>"));
+
+    if bypass_local && !has_local {
+        parts.push("<local>");
+    }
+
+    parts.join(";")
+}
+
 fn apply(options: &INTERNET_PER_CONN_OPTION_LISTW) -> Result<()> {
     unsafe {
         if InternetSetOptionW(
@@ -287,6 +347,24 @@ fn apply(options: &INTERNET_PER_CONN_OPTION_LISTW) -> Result<()> {
 }
 
 impl SystemProxy {
+    fn parse_windows_bypass(bypass: String) -> (String, bool) {
+        let mut parts = vec![];
+        let mut bypass_local = false;
+
+        for raw_part in bypass.split(';').map(str::trim) {
+            if raw_part.is_empty() {
+                continue;
+            }
+            if raw_part.eq_ignore_ascii_case("<local>") {
+                bypass_local = true;
+                continue;
+            }
+            parts.push(raw_part);
+        }
+
+        (parts.join(";"), bypass_local)
+    }
+
     pub fn get_system_proxy() -> Result<SystemProxy> {
         let hkcu = open_internet_settings_key()?;
         let result = (|| {
@@ -302,12 +380,14 @@ impl SystemProxy {
                 let port = socket.port();
                 (host, port)
             };
-            let bypass = read_registry_string_value(hkcu, "ProxyOverride")?.unwrap_or_default();
+            let bypass_val = read_registry_string_value(hkcu, "ProxyOverride")?.unwrap_or_default();
+            let (bypass, bypass_local) = Self::parse_windows_bypass(bypass_val);
             Ok(SystemProxy {
                 enable,
                 host,
                 port,
                 bypass,
+                bypass_local,
             })
         })();
         close_registry_key(hkcu);
@@ -315,9 +395,11 @@ impl SystemProxy {
     }
 
     pub fn set_system_proxy(&self) -> Result<()> {
-        match self.enable {
-            true => set_global_proxy(format!("{}:{}", self.host, self.port), self.bypass.clone()),
-            false => unset_proxy(),
+        if self.enable {
+            let server = format!("{}:{}", self.host, self.port);
+            set_global_proxy(server, self.bypass.clone(), self.bypass_local)
+        } else {
+            unset_proxy_with_bypass(self.bypass.clone(), self.bypass_local)
         }
     }
 }
