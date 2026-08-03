@@ -49,6 +49,33 @@ mod tests {
 
     #[test]
     #[serial]
+    fn test_system_enable2() {
+        {
+            let mut sys_proxy = SystemProxy {
+                enable: true,
+                host: "127.0.0.1".into(),
+                port: 9090,
+                ..Default::default()
+            };
+            sys_proxy.deal_with_bypass_simplify(true);
+            sys_proxy.set_system_proxy().unwrap();
+
+            let cur_proxy = SystemProxy::get_system_proxy().unwrap();
+
+            assert_eq!(cur_proxy, sys_proxy);
+        }
+
+        {
+            let sys_proxy2 = SystemProxy::default();
+            sys_proxy2.set_system_proxy().unwrap();
+
+            let current = SystemProxy::get_system_proxy().unwrap();
+            assert_eq!(current, sys_proxy2);
+        }
+    }
+
+    #[test]
+    #[serial]
     fn test_auto_enable() {
         let mut autoproxy = Autoproxy {
             enable: true,

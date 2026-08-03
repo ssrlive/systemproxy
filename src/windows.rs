@@ -148,16 +148,29 @@ fn close_registry_key(key: HKEY) {
     }
 }
 
-/// unset proxy while keeping bypass configuration in sync
-fn unset_proxy_with_bypass(bypass: String, bypass_local: bool) -> Result<()> {
+/// unset proxy while keeping bypass configuration in sync and preserve proxy server settings
+fn unset_proxy_with_bypass(server: String, bypass: String, bypass_local: bool) -> Result<()> {
     let bypass = normalize_windows_bypass(&bypass, bypass_local);
-    let mut p_opts = ManuallyDrop::new(Vec::<INTERNET_PER_CONN_OPTIONW>::with_capacity(2));
+    let mut p_opts = ManuallyDrop::new(Vec::<INTERNET_PER_CONN_OPTIONW>::with_capacity(3));
     p_opts.push(INTERNET_PER_CONN_OPTIONW {
         dwOption: INTERNET_PER_CONN_FLAGS,
         Value: {
             let mut v = INTERNET_PER_CONN_OPTIONW_0::default();
             v.dwValue = PROXY_TYPE_DIRECT;
             v
+        },
+    });
+
+    let mut s = ManuallyDrop::new(
+        server
+            .encode_utf16()
+            .chain(Some(0u16))
+            .collect::<Vec<u16>>(),
+    );
+    p_opts.push(INTERNET_PER_CONN_OPTIONW {
+        dwOption: INTERNET_PER_CONN_PROXY_SERVER,
+        Value: INTERNET_PER_CONN_OPTIONW_0 {
+            pszValue: s.as_ptr() as *mut u16,
         },
     });
 
@@ -177,13 +190,14 @@ fn unset_proxy_with_bypass(bypass: String, bypass_local: bool) -> Result<()> {
 
     let opts = INTERNET_PER_CONN_OPTION_LISTW {
         dwSize: size_of::<INTERNET_PER_CONN_OPTION_LISTW>() as u32,
-        dwOptionCount: 2,
+        dwOptionCount: 3,
         dwOptionError: 0,
         pOptions: p_opts.as_mut_ptr(),
         pszConnection: null_mut(),
     };
     let res = apply(&opts);
     unsafe {
+        ManuallyDrop::drop(&mut s);
         ManuallyDrop::drop(&mut b);
         ManuallyDrop::drop(&mut p_opts);
     }
@@ -399,7 +413,8 @@ impl SystemProxy {
             let server = format!("{}:{}", self.host, self.port);
             set_global_proxy(server, self.bypass.clone(), self.bypass_local)
         } else {
-            unset_proxy_with_bypass(self.bypass.clone(), self.bypass_local)
+            let server = format!("{}:{}", self.host, self.port);
+            unset_proxy_with_bypass(server, self.bypass.clone(), self.bypass_local)
         }
     }
 }

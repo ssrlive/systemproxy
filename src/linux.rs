@@ -39,12 +39,10 @@ impl SystemProxy {
         self.set_enable()?;
         self.set_bypass()?;
 
-        if self.enable {
-            self.set_socks()?;
-            self.set_https()?;
-            self.set_http()?;
-            self.set_ftp()?;
-        }
+        self.set_socks()?;
+        self.set_https()?;
+        self.set_http()?;
+        self.set_ftp()?;
 
         Ok(())
     }
