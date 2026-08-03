@@ -37,13 +37,13 @@ impl SystemProxy {
 
     pub fn set_system_proxy(&self) -> Result<()> {
         self.set_enable()?;
+        self.set_bypass()?;
 
         if self.enable {
             self.set_socks()?;
             self.set_https()?;
             self.set_http()?;
             self.set_ftp()?;
-            self.set_bypass()?;
         }
 
         Ok(())
@@ -114,12 +114,14 @@ impl SystemProxy {
                     .or(Err(Error::ParseStr("bypass".into())))?
                     .trim();
 
+                let bypass = bypass.strip_prefix("@as ").unwrap_or(bypass);
                 let bypass = bypass.strip_prefix('[').unwrap_or(bypass);
                 let bypass = bypass.strip_suffix(']').unwrap_or(bypass);
 
                 let bypass = bypass
                     .split(',')
                     .map(|h| strip_str(h.trim()))
+                    .filter(|h| !h.is_empty())
                     .collect::<Vec<&str>>()
                     .join(",");
 
@@ -177,23 +179,26 @@ impl SystemProxy {
             "KDE" => {
                 let config = kioslaverc_config()?;
 
-                let bypass = self
-                    .bypass
-                    .split(',')
-                    .map(|h| {
-                        let mut host = String::from(h.trim());
-                        if !host.starts_with('\'') && !host.starts_with('"') {
-                            host = String::from("'") + &host;
-                        }
-                        if !host.ends_with('\'') && !host.ends_with('"') {
-                            host += "'";
-                        }
-                        host
-                    })
-                    .collect::<Vec<String>>()
-                    .join(", ");
-
-                let bypass = format!("[{bypass}]");
+                let bypass = if self.bypass.trim().is_empty() {
+                    "[]".to_string()
+                } else {
+                    let bypass = self
+                        .bypass
+                        .split(',')
+                        .map(|h| {
+                            let mut host = String::from(h.trim());
+                            if !host.starts_with('"') && !host.starts_with('\'') {
+                                host = String::from("'") + &host;
+                            }
+                            if !host.ends_with('"') && !host.ends_with('\'') {
+                                host += "'";
+                            }
+                            host
+                        })
+                        .collect::<Vec<String>>()
+                        .join(", ");
+                    format!("[{bypass}]")
+                };
 
                 gsettings()
                     .args(["set", CMD_KEY, "ignore-hosts", bypass.as_str()])
@@ -213,23 +218,26 @@ impl SystemProxy {
                 Ok(())
             }
             _ => {
-                let bypass = self
-                    .bypass
-                    .split(',')
-                    .map(|h| {
-                        let mut host = String::from(h.trim());
-                        if !host.starts_with('\'') && !host.starts_with('"') {
-                            host = String::from("'") + &host;
-                        }
-                        if !host.ends_with('\'') && !host.ends_with('"') {
-                            host += "'";
-                        }
-                        host
-                    })
-                    .collect::<Vec<String>>()
-                    .join(", ");
-
-                let bypass = format!("[{bypass}]");
+                let bypass = if self.bypass.trim().is_empty() {
+                    "[]".to_string()
+                } else {
+                    let bypass = self
+                        .bypass
+                        .split(',')
+                        .map(|h| {
+                            let mut host = String::from(h.trim());
+                            if !host.starts_with('"') && !host.starts_with('\'') {
+                                host = String::from("'") + &host;
+                            }
+                            if !host.ends_with('"') && !host.ends_with('\'') {
+                                host += "'";
+                            }
+                            host
+                        })
+                        .collect::<Vec<String>>()
+                        .join(", ");
+                    format!("[{bypass}]")
+                };
 
                 gsettings()
                     .args(["set", CMD_KEY, "ignore-hosts", bypass.as_str()])
@@ -373,14 +381,13 @@ fn get_proxy(service: &str) -> Result<SystemProxy> {
                 .split_once(' ')
                 .ok_or(Error::ParseStr("schema".into()))?;
 
-            let host = strip_str(schema.0);
+            let host = strip_str(schema.0).to_string();
             let port = schema.1.parse().unwrap_or(80u16);
 
             Ok(SystemProxy {
-                enable: false,
-                host: String::from(host),
+                host,
                 port,
-                bypass: "".into(),
+                ..Default::default()
             })
         }
         _ => {
@@ -391,7 +398,7 @@ fn get_proxy(service: &str) -> Result<SystemProxy> {
             let host = from_utf8(&host.stdout)
                 .or(Err(Error::ParseStr("host".into())))?
                 .trim();
-            let host = strip_str(host);
+            let host = strip_str(host).to_string();
 
             let port = gsettings().args(["get", schema, "port"]).output()?;
             let port = from_utf8(&port.stdout)
@@ -400,10 +407,9 @@ fn get_proxy(service: &str) -> Result<SystemProxy> {
             let port = port.parse().unwrap_or(80u16);
 
             Ok(SystemProxy {
-                enable: false,
-                host: String::from(host),
+                host,
                 port,
-                bypass: "".into(),
+                ..Default::default()
             })
         }
     }

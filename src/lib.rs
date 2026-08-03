@@ -10,7 +10,7 @@ mod windows;
 // #[cfg(feature = "utils")]
 pub mod utils;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct SystemProxy {
     pub enable: bool,
     pub host: String,
@@ -18,22 +18,6 @@ pub struct SystemProxy {
     pub bypass: String,
     #[cfg(target_os = "windows")]
     pub bypass_local: bool,
-}
-
-impl Default for SystemProxy {
-    fn default() -> Self {
-        Self {
-            enable: false,
-            host: String::new(),
-            port: 0,
-            #[cfg(target_os = "windows")]
-            bypass: "localhost;127.*".into(),
-            #[cfg(not(target_os = "windows"))]
-            bypass: "localhost,127.0.0.1/8".into(),
-            #[cfg(target_os = "windows")]
-            bypass_local: false,
-        }
-    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -64,6 +48,26 @@ pub enum Error {
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 impl SystemProxy {
+    pub fn deal_with_bypass_simplify(&mut self, set: bool) {
+        if set {
+            #[cfg(target_os = "windows")]
+            {
+                self.bypass_local = true;
+                self.bypass = "localhost;127.*".into();
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                self.bypass = "localhost,127.0.0.1/8".into();
+            }
+        } else {
+            #[cfg(target_os = "windows")]
+            {
+                self.bypass_local = false;
+            }
+            self.bypass = "".into();
+        }
+    }
+
     pub fn is_support() -> bool {
         cfg!(any(
             target_os = "linux",

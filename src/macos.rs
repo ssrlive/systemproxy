@@ -265,7 +265,7 @@ fn get_proxy(proxy_type: ProxyType, service: &str) -> Result<SystemProxy> {
         enable,
         host,
         port,
-        bypass: "".into(),
+        ..Default::default()
     })
 }
 

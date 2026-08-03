@@ -30,10 +30,9 @@ mod tests {
             enable: true,
             host: "127.0.0.1".into(),
             port: 9090,
-            #[cfg(windows)]
-            bypass_local: true,
             ..Default::default()
         };
+        sys_proxy.deal_with_bypass_simplify(true);
         sys_proxy.set_system_proxy().unwrap();
 
         let cur_proxy = SystemProxy::get_system_proxy().unwrap();
@@ -41,10 +40,7 @@ mod tests {
         assert_eq!(cur_proxy, sys_proxy);
 
         sys_proxy.enable = false;
-        #[cfg(windows)]
-        {
-            sys_proxy.bypass_local = false;
-        }
+        sys_proxy.deal_with_bypass_simplify(false);
         sys_proxy.set_system_proxy().unwrap();
 
         let current = SystemProxy::get_system_proxy().unwrap();
